@@ -1,5 +1,6 @@
 import warnings
 from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from dotenv import load_dotenv
 
@@ -28,7 +29,7 @@ from openhands.server.shared import conversation_manager
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI):
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with conversation_manager:
         yield
 
@@ -45,7 +46,7 @@ load_dotenv()
 
 
 @app.get('/health')
-async def health():
+async def health() -> str:
     return 'OK'
 
 
