@@ -9,14 +9,15 @@ from openhands.core.exceptions import BrowserUnavailableException
 from openhands.core.schema import ActionType
 from openhands.events.action import BrowseInteractiveAction, BrowseURLAction
 from openhands.events.observation import BrowserOutputObservation
-from openhands.runtime.browser.base64 import png_base64_url_to_image
+from openhands.runtime.browser.base64_utils import png_base64_url_to_image
 from openhands.runtime.browser.browser_env import BrowserEnv
+from openhands.runtime.browser.brwoser_use import BrowserUseEnv # <--- 新增导入
 from openhands.utils.async_utils import call_sync_from_async
 
 
 async def browse(
     action: BrowseURLAction | BrowseInteractiveAction,
-    browser: BrowserEnv | None,
+    browser: BrowserEnv | BrowserUseEnv | None, # <--- 修改此处的类型提示
     workspace_dir: str | None = None,
 ) -> BrowserOutputObservation:
     if browser is None:
@@ -38,6 +39,7 @@ async def browse(
 
     try:
         # obs provided by BrowserGym: see https://github.com/ServiceNow/BrowserGym/blob/main/core/src/browsergym/core/env.py#L396
+        # For BrowserUseEnv, obs will be the dictionary returned by its step method
         obs = await call_sync_from_async(browser.step, action_str)
 
         # Save screenshot if workspace_dir is provided
@@ -52,41 +54,34 @@ async def browse(
             screenshot_filename = f'screenshot_{timestamp}.png'
             screenshot_path = str(screenshots_dir / screenshot_filename)
 
-            # Direct image saving from base64 data without using PIL's Image.open
-            # This approach bypasses potential encoding issues that might occur when
-            # converting between different image representations, ensuring the raw PNG
-            # data from the browser is saved directly to disk.
-
-            # Extract the base64 data
             base64_data = obs.get('screenshot', '')
             if ',' in base64_data:
                 base64_data = base64_data.split(',')[1]
 
             try:
-                # Decode base64 directly to binary
                 image_data = base64.b64decode(base64_data)
-
-                # Write binary data directly to file
                 with open(screenshot_path, 'wb') as f:
                     f.write(image_data)
-
-                # Verify the image was saved correctly by opening it
-                # This is just a verification step and can be removed in production
                 Image.open(screenshot_path).verify()
             except Exception:
-                # If direct saving fails, fall back to the original method
-                image = png_base64_url_to_image(obs.get('screenshot'))
-                image.save(screenshot_path, format='PNG', optimize=True)
+                try:
+                    image = png_base64_url_to_image(obs.get('screenshot'))
+                    image.save(screenshot_path, format='PNG', optimize=True)
+                except Exception as save_exc:
+                    # If saving still fails, set screenshot_path to None
+                    print(f"Error saving screenshot: {save_exc}")
+                    screenshot_path = None
+
 
         return BrowserOutputObservation(
-            content=obs['text_content'],  # text content of the page
+            content=obs.get('text_content', ''),  # text content of the page
             url=obs.get('url', ''),  # URL of the page
             screenshot=obs.get('screenshot', None),  # base64-encoded screenshot, png
             screenshot_path=screenshot_path,  # path to saved screenshot file
             set_of_marks=obs.get(
                 'set_of_marks', None
             ),  # base64-encoded Set-of-Marks annotated screenshot, png,
-            goal_image_urls=obs.get('image_content', []),
+            goal_image_urls=obs.get('goal_image_urls', []),
             open_pages_urls=obs.get('open_pages_urls', []),  # list of open pages
             active_page_index=obs.get(
                 'active_page_index', -1
@@ -98,11 +93,11 @@ async def browse(
                 'focused_element_bid', None
             ),  # focused element bid
             last_browser_action=obs.get(
-                'last_action', ''
-            ),  # last browser env action performed
+                'last_action', '' # In BrowserUseEnv, this will be populated by its step method
+            ),
             last_browser_action_error=obs.get('last_action_error', ''),
-            error=True if obs.get('last_action_error', '') else False,  # error flag
-            trigger_by_action=action.action,
+            error=obs.get('error', False),
+            trigger_by_action=action.action, # This might be redundant if last_action is correctly populated
         )
     except Exception as e:
         return BrowserOutputObservation(
@@ -111,6 +106,6 @@ async def browse(
             screenshot_path=None,
             error=True,
             last_browser_action_error=str(e),
-            url=asked_url if action.action == ActionType.BROWSE else '',
+            url=asked_url if isinstance(action, BrowseURLAction) else (action.url if hasattr(action, 'url') else ''),
             trigger_by_action=action.action,
         )
