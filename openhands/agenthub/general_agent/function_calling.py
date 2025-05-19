@@ -9,7 +9,7 @@ from litellm import (
     ModelResponse,
 )
 
-from openhands.agenthub.codeact_agent.tools import (
+from openhands.agenthub.general_agent.tools import (
     BrowserTool,
     FinishTool,
     IPythonTool,
