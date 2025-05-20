@@ -54,6 +54,7 @@ app = APIRouter(prefix='/api')
 
 
 class InitSessionRequest(BaseModel):
+    conversation_trigger: ConversationTrigger = ConversationTrigger.GUI
     repository: str | None = None
     git_provider: ProviderType | None = None
     selected_branch: str | None = None

@@ -11,13 +11,13 @@ from openhands.events.action import BrowseInteractiveAction, BrowseURLAction
 from openhands.events.observation import BrowserOutputObservation
 from openhands.runtime.browser.base64_utils import png_base64_url_to_image
 from openhands.runtime.browser.browser_env import BrowserEnv
-from openhands.runtime.browser.brwoser_use import BrowserUseEnv # <--- 新增导入
+from openhands.runtime.browser.browser_use import BrowserUseEnv
 from openhands.utils.async_utils import call_sync_from_async
 
 
 async def browse(
     action: BrowseURLAction | BrowseInteractiveAction,
-    browser: BrowserEnv | BrowserUseEnv | None, # <--- 修改此处的类型提示
+    browser: BrowserEnv | BrowserUseEnv | None, 
     workspace_dir: str | None = None,
 ) -> BrowserOutputObservation:
     if browser is None:
@@ -40,7 +40,10 @@ async def browse(
     try:
         # obs provided by BrowserGym: see https://github.com/ServiceNow/BrowserGym/blob/main/core/src/browsergym/core/env.py#L396
         # For BrowserUseEnv, obs will be the dictionary returned by its step method
-        obs = await call_sync_from_async(browser.step, action_str)
+        if isinstance(browser, BrowserUseEnv):
+            obs = await browser.step(action_str)
+        else:
+            obs = await call_sync_from_async(browser.step, action_str)
 
         # Save screenshot if workspace_dir is provided
         screenshot_path = None
@@ -66,7 +69,8 @@ async def browse(
             except Exception:
                 try:
                     image = png_base64_url_to_image(obs.get('screenshot'))
-                    image.save(screenshot_path, format='PNG', optimize=True)
+                    if image is not None:
+                        image.save(screenshot_path, format='PNG', optimize=True)
                 except Exception as save_exc:
                     # If saving still fails, set screenshot_path to None
                     print(f"Error saving screenshot: {save_exc}")

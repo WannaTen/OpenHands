@@ -36,6 +36,11 @@ def convert_mcp_clients_to_tools(mcp_clients: list[MCPClient] | None) -> list[di
             # The ToolCollection has a to_params method that converts tools to ChatCompletionToolParam format
             for tool in client.tools:
                 mcp_tools = tool.to_param()
+                if mcp_tools['function']['name'] == 'fetch':
+                    # remove url format attribute
+                    mcp_tools['function']['parameters']['properties']['url'].pop(
+                        'format', None
+                    )
                 all_mcp_tools.append(mcp_tools)
     except Exception as e:
         logger.error(f'Error in convert_mcp_clients_to_tools: {e}')

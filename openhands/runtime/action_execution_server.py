@@ -62,6 +62,7 @@ from openhands.events.observation import (
 from openhands.events.serialization import event_from_dict, event_to_dict
 from openhands.runtime.browser import browse
 from openhands.runtime.browser.browser_env import BrowserEnv
+from openhands.runtime.browser.browser_use import BrowserUseEnv
 from openhands.runtime.file_viewer_server import start_file_viewer_server
 from openhands.runtime.plugins import ALL_PLUGINS, JupyterPlugin, Plugin, VSCodePlugin
 from openhands.runtime.utils import find_available_tcp_port
@@ -190,7 +191,7 @@ class ActionExecutor:
         self.lock = asyncio.Lock()
         self.plugins: dict[str, Plugin] = {}
         self.file_editor = OHEditor(workspace_root=self._initial_cwd)
-        self.browser: BrowserEnv | None = None
+        self.browser: BrowserEnv | BrowserUseEnv | None = None
         self.browser_init_task: asyncio.Task | None = None
         self.browsergym_eval_env = browsergym_eval_env
 
@@ -225,7 +226,8 @@ class ActionExecutor:
 
         logger.debug('Initializing browser asynchronously')
         try:
-            self.browser = BrowserEnv(self.browsergym_eval_env)
+            # self.browser = BrowserEnv(self.browsergym_eval_env)
+            self.browser = BrowserUseEnv()
             logger.debug('Browser initialized asynchronously')
         except Exception as e:
             logger.error(f'Failed to initialize browser: {e}')

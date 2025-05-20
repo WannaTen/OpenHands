@@ -1,142 +1,59 @@
-from browsergym.core.action.highlevel import HighLevelActionSet
+
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 
-# from browsergym/core/action/highlevel.py
-_browser_action_space = HighLevelActionSet(
-    subsets=['bid', 'nav'],
-    strict=False,  # less strict on the parsing of the actions
-    multiaction=True,  # enable to agent to take multiple actions at once
-)
+_BROWSER_DESCRIPTION = """Interact with the browser by providing action strings. Use this tool ONLY when you need to interact with a webpage.
+The 'code' parameter should contain a single action string to be executed by the browser.
 
+See the detailed format for action strings in the description of the 'code' parameter.
 
-_BROWSER_DESCRIPTION = """Interact with the browser using Python code. Use it ONLY when you need to interact with a webpage.
-
-See the description of "code" parameter for more details.
-
-Multiple actions can be provided at once, but will be executed sequentially without any feedback from the page.
+Multiple actions can be provided at once, one action per line, but will be executed sequentially without any feedback from the page.
 More than 2-3 actions usually leads to failure or unexpected behavior. Example:
-fill('a12', 'example with "quotes"')
-click('a51')
-click('48', button='middle', modifiers=['Shift'])
+"goto:https://www.example.com"
+"click:12"
+"type:23:my search query"
+"scroll:down"
 
-You can also use the browser to view pdf, png, jpg files.
-You should first check the content of /tmp/oh-server-url to get the server url, and then use it to view the file by `goto("{server_url}/view?path={absolute_file_path}")`.
-For example: `goto("http://localhost:8000/view?path=/workspace/test_document.pdf")`
-Note: The file should be downloaded to the local machine first before using the browser to view it.
+the normal multiple actions can be like this(first type and then click):
+"type:7:my search query"
+"click:8"
+
+
+
+You can also use the browser to view local pdf, png, jpg files.
+To do this, first obtain the server URL (e.g., from /tmp/oh-server-url). Then, use an action string like:
+`goto:http://{server_url}/view?path={absolute_file_path}`
+For example: `goto:http://localhost:8000/view?path=/workspace/test_document.pdf`
+Note: The file should be downloaded to the local machine first before attempting to view it with the browser.
 """
 
 _BROWSER_TOOL_DESCRIPTION = """
-The following 15 functions are available. Nothing else is supported.
+The following 4 actions are available. Actions are specified as strings in the format 'ACTION_NAME:PARAMETERS'.
 
-goto(url: str)
-    Description: Navigate to a url.
+goto:URL
+    Description: Navigate to a URL. The URL can optionally be enclosed in double quotes.
     Examples:
-        goto('http://www.example.com')
+        goto:http://www.example.com
+        goto:"https://www.google.com"
 
-go_back()
-    Description: Navigate to the previous page in history.
+click:ELEMENT_INDEX
+    Description: Click an element identified by its integer index. Element indices are typically obtained from the browser observation.
     Examples:
-        go_back()
+        click:12
+        click:0
 
-go_forward()
-    Description: Navigate to the next page in history.
+type:ELEMENT_INDEX:TEXT
+    Description: Type text into an element (e.g., an input field) identified by its integer index. The text to type follows the second colon.
     Examples:
-        go_forward()
+        type:23:hello world
+        type:45:user@example.com
 
-noop(wait_ms: float = 1000)
-    Description: Do nothing, and optionally wait for the given time (in milliseconds).
-    You can use this to get the current page content and/or wait for the page to load.
+scroll:DIRECTION
+    Description: Scroll the page.
+    Parameters:
+        DIRECTION: The direction to scroll. Currently, only "down" is supported.
     Examples:
-        noop()
-
-        noop(500)
-
-scroll(delta_x: float, delta_y: float)
-    Description: Scroll horizontally and vertically. Amounts in pixels, positive for right or down scrolling, negative for left or up scrolling. Dispatches a wheel event.
-    Examples:
-        scroll(0, 200)
-
-        scroll(-50.2, -100.5)
-
-fill(bid: str, value: str)
-    Description: Fill out a form field. It focuses the element and triggers an input event with the entered text. It works for <input>, <textarea> and [contenteditable] elements.
-    Examples:
-        fill('237', 'example value')
-
-        fill('45', 'multi-line\nexample')
-
-        fill('a12', 'example with "quotes"')
-
-select_option(bid: str, options: str | list[str])
-    Description: Select one or multiple options in a <select> element. You can specify option value or label to select. Multiple options can be selected.
-    Examples:
-        select_option('a48', 'blue')
-
-        select_option('c48', ['red', 'green', 'blue'])
-
-click(bid: str, button: Literal['left', 'middle', 'right'] = 'left', modifiers: list[typing.Literal['Alt', 'Control', 'ControlOrMeta', 'Meta', 'Shift']] = [])
-    Description: Click an element.
-    Examples:
-        click('a51')
-
-        click('b22', button='right')
-
-        click('48', button='middle', modifiers=['Shift'])
-
-dblclick(bid: str, button: Literal['left', 'middle', 'right'] = 'left', modifiers: list[typing.Literal['Alt', 'Control', 'ControlOrMeta', 'Meta', 'Shift']] = [])
-    Description: Double click an element.
-    Examples:
-        dblclick('12')
-
-        dblclick('ca42', button='right')
-
-        dblclick('178', button='middle', modifiers=['Shift'])
-
-hover(bid: str)
-    Description: Hover over an element.
-    Examples:
-        hover('b8')
-
-press(bid: str, key_comb: str)
-    Description: Focus the matching element and press a combination of keys. It accepts the logical key names that are emitted in the keyboardEvent.key property of the keyboard events: Backquote, Minus, Equal, Backslash, Backspace, Tab, Delete, Escape, ArrowDown, End, Enter, Home, Insert, PageDown, PageUp, ArrowRight, ArrowUp, F1 - F12, Digit0 - Digit9, KeyA - KeyZ, etc. You can alternatively specify a single character you'd like to produce such as "a" or "#". Following modification shortcuts are also supported: Shift, Control, Alt, Meta, ShiftLeft, ControlOrMeta. ControlOrMeta resolves to Control on Windows and Linux and to Meta on macOS.
-    Examples:
-        press('88', 'Backspace')
-
-        press('a26', 'ControlOrMeta+a')
-
-        press('a61', 'Meta+Shift+t')
-
-focus(bid: str)
-    Description: Focus the matching element.
-    Examples:
-        focus('b455')
-
-clear(bid: str)
-    Description: Clear the input field.
-    Examples:
-        clear('996')
-
-drag_and_drop(from_bid: str, to_bid: str)
-    Description: Perform a drag & drop. Hover the element that will be dragged. Press left mouse button. Move mouse to the element that will receive the drop. Release left mouse button.
-    Examples:
-        drag_and_drop('56', '498')
-
-upload_file(bid: str, file: str | list[str])
-    Description: Click an element and wait for a "filechooser" event, then select one or multiple input files for upload. Relative file paths are resolved relative to the current working directory. An empty list clears the selected files.
-    Examples:
-        upload_file('572', '/home/user/my_receipt.pdf')
-
-        upload_file('63', ['/home/bob/Documents/image.jpg', '/home/bob/Documents/file.zip'])
+        scroll:down
 """
-
-
-for _, action in _browser_action_space.action_set.items():
-    assert action.signature in _BROWSER_TOOL_DESCRIPTION, (
-        f'Browser description mismatch. Please double check if the BrowserGym updated their action space.\n\nAction: {action.signature}'
-    )
-    assert action.description in _BROWSER_TOOL_DESCRIPTION, (
-        f'Browser description mismatch. Please double check if the BrowserGym updated their action space.\n\nAction: {action.description}'
-    )
 
 BrowserTool = ChatCompletionToolParam(
     type='function',
@@ -149,7 +66,7 @@ BrowserTool = ChatCompletionToolParam(
                 'code': {
                     'type': 'string',
                     'description': (
-                        'The Python code that interacts with the browser.\n'
+                        'The action string that interacts with the browser.\n'
                         + _BROWSER_TOOL_DESCRIPTION
                     ),
                 }

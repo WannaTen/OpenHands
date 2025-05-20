@@ -259,9 +259,10 @@ class BrowserUseEnv:
       
     async def step(self, action_str: str) -> dict:  
         """异步执行动作并返回观察结果"""  
-        unique_request_id = str(uuid.uuid4())  
-        self.agent_side.send((unique_request_id, {'action': action_str}))  
-          
+        unique_request_id = str(uuid.uuid4())
+        for action in action_str.split('\n'):
+            self.agent_side.send((unique_request_id, {'action': action.strip()}))  
+
         # 使用异步方式等待响应  
         while True:  
             if self.agent_side.poll(timeout=0.01):  
