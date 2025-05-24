@@ -136,10 +136,10 @@ class BrowserUseEnv:
                                 result = loop.run_until_complete(self._scroll_down(browser_context))  
                             else:  
                                 result = {"error": "滚动方向无效"}  
-                        else:  
+                        else:
                             result = {"error": f"不支持的动作: {action}"}                                   
                         # 获取页面状态  
-                        obs = loop.run_until_complete(self._get_observation(browser_context))  
+                        obs = loop.run_until_complete(self._get_observation(browser_context, result))  
                         if action_execution_error_message:
                             obs["error_message_for_step"] = action_execution_error_message
       
@@ -179,45 +179,57 @@ class BrowserUseEnv:
       
     async def _navigate_to_url(self, browser_context, url):  
         """导航到指定URL"""  
-        page = await browser_context.get_current_page()  
-        await page.goto(url)  
-        await page.wait_for_load_state('load')  
-        return {"status": "成功", "url": url}  
-      
+        try:
+            page = await browser_context.get_current_page()  
+            await page.goto(url)  
+            await page.wait_for_load_state('load')  
+            return {"status": "success", "url": url}
+        except Exception as e:
+            return {"status": "failed", "error": f"导航到URL时出错: {str(e)}"}
+    
     async def _click_element(self, browser_context, element_index):  
         """点击元素"""  
-        state = await browser_context.get_state(cache_clickable_elements_hashes=True)  
-        selector_map = state.selector_map  
-          
-        if element_index not in selector_map:  
-            return {"error": f"元素索引 {element_index} 不存在"}  
+        try:
+            state = await browser_context.get_state(cache_clickable_elements_hashes=True)  
+            selector_map = state.selector_map  
               
-        element_node = selector_map[element_index]  
-        download_path = await browser_context._click_element_node(element_node)  
-          
-        if download_path:  
-            return {"status": "成功", "download_path": download_path}  
-        return {"status": "成功", "element_text": element_node.get_all_text_till_next_clickable_element(max_depth=2)}  
+            if element_index not in selector_map:  
+                return {"status": "failed", "error": f"元素索引 {element_index} 不存在"}  
+                  
+            element_node = selector_map[element_index]  
+            download_path = await browser_context._click_element_node(element_node)  
+              
+            if download_path:  
+                return {"status": "success", "download_path": download_path}  
+            return {"status": "success", "element_text": element_node.get_all_text_till_next_clickable_element(max_depth=2)}
+        except Exception as e:
+            return {"status": "failed", "error": f"点击元素时出错: {str(e)}"}
       
     async def _input_text(self, browser_context, element_index, text):  
         """在元素中输入文本"""  
-        state = await browser_context.get_state(cache_clickable_elements_hashes=True)  
-        selector_map = state.selector_map  
-          
-        if element_index not in selector_map:  
-            return {"error": f"元素索引 {element_index} 不存在"}  
+        try:
+            state = await browser_context.get_state(cache_clickable_elements_hashes=True)  
+            selector_map = state.selector_map  
               
-        element_node = selector_map[element_index]  
-        await browser_context._input_text_element_node(element_node, text)  
-        return {"status": "成功", "text": text}  
+            if element_index not in selector_map:  
+                return {"status": "failed", "error": f"元素索引 {element_index} 不存在"}  
+                  
+            element_node = selector_map[element_index]  
+            await browser_context._input_text_element_node(element_node, text)  
+            return {"status": "success", "text": text}
+        except Exception as e:
+            return {"status": "failed", "error": f"输入文本时出错: {str(e)}"}
       
     async def _scroll_down(self, browser_context):  
         """向下滚动"""  
-        page = await browser_context.get_current_page()  
-        await page.evaluate('window.scrollBy(0, window.innerHeight);')  
-        return {"status": "成功", "direction": "down"}  
+        try:
+            page = await browser_context.get_current_page()  
+            await page.evaluate('window.scrollBy(0, window.innerHeight);')  
+            return {"status": "success", "direction": "down"}
+        except Exception as e:
+            return {"status": "failed", "error": f"向下滚动时出错: {str(e)}"}
       
-    async def _get_observation(self, browser_context):  
+    async def _get_observation(self, browser_context, action_result):  
         """获取当前浏览器状态的观察结果"""  
         # 获取浏览器状态  
         state = await browser_context.get_state(cache_clickable_elements_hashes=True)  

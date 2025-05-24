@@ -122,7 +122,7 @@ class GeneralAgent(Agent):
             if sys.platform == 'win32':
                 logger.warning('Windows runtime does not support browsing yet')
             else:
-                tools.append(WebReadTool)
+                # tools.append(WebReadTool)
                 tools.append(BrowserTool)
         if self.config.enable_jupyter:
             tools.append(IPythonTool)

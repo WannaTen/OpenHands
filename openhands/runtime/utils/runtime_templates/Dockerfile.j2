@@ -21,7 +21,11 @@ RUN apt-get update && \
         {%- else %}
         libgl1-mesa-glx \
         {% endif -%}
-        libasound2-plugins libatomic1 && \
+        libasound2-plugins libatomic1  \
+        # Common utilities that may be needed by GUI or other extensions
+        imagemagick \
+        net-tools \
+        unzip && \
     {%- if 'ubuntu' in base_image -%}
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     TZ=Etc/UTC DEBIAN_FRONTEND=noninteractive \
@@ -51,6 +55,94 @@ RUN (if getent passwd 1000 | grep -q pn; then userdel pn; fi) && \
 RUN mkdir -p /openhands && \
     mkdir -p /openhands/logs && \
     mkdir -p /openhands/poetry
+
+{% endmacro %}
+
+{% macro setup_gui_extensions() %}
+# ================================================================
+# GUI Extensions Configuration
+# ================================================================
+# Install GUI dependencies and desktop environment
+
+# Set GUI environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_PRIORITY=high
+
+# Optional: Modify apt sources to use faster mirrors (uncomment if needed)
+# RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources
+# RUN sed -i 's/deb.debian.org/ftp.jaist.ac.jp/g' /etc/apt/sources.list.d/debian.sources
+
+# Install GUI and desktop environment packages
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get -y install \
+    # UI Requirements
+    xvfb \
+    tint2 \
+    xterm \
+    xdotool \
+    scrot \
+    mutter \
+    x11vnc \
+    openbox \
+    supervisor \
+    novnc \
+    websockify \
+    xdg-utils \
+    python3-xdg \
+    x11-xserver-utils \
+    netcat-traditional \
+    && apt-get install -y --no-install-recommends \
+    # Desktop applications
+    libreoffice \
+    x11-apps \
+    xpdf \
+    gedit \
+    xpaint \
+    galculator \
+    pcmanfm && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install noVNC
+RUN git clone --depth 1 --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
+    git clone --depth 1 --branch v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
+    ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
+
+# Setup GUI user environment (use openhands user if available, otherwise create new)
+ENV GUI_USERNAME=openhands
+ENV GUI_HOME=/home/$GUI_USERNAME
+# Create GUI user only if it doesn't exist, otherwise use existing openhands user
+RUN if ! id "$GUI_USERNAME" &>/dev/null; then \
+        useradd -m -s /bin/bash -d $GUI_HOME $GUI_USERNAME && \
+        echo "${GUI_USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers; \
+    else \
+        echo "Using existing user: $GUI_USERNAME"; \
+    fi
+
+# Set display configuration variables
+ARG DISPLAY_NUM=1
+ARG HEIGHT=768
+ARG WIDTH=1024
+ENV DISPLAY_NUM=$DISPLAY_NUM
+ENV HEIGHT=$HEIGHT
+ENV WIDTH=$WIDTH
+
+# Copy GUI extension startup scripts and configuration files
+COPY ./code/openhands/runtime/utils/gui-extensions/entrypoint.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/start_all.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/xvfb_startup.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/x11vnc_startup.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/novnc_startup.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/mutter_startup.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/tint2_startup.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/.config/ $GUI_HOME/.config/
+
+# Make scripts executable
+RUN chmod +x $GUI_HOME/*.sh
+
+# Set ownership for GUI user
+RUN chown -R $GUI_USERNAME:$GUI_USERNAME $GUI_HOME
 
 {% endmacro %}
 
@@ -183,6 +275,11 @@ RUN chmod a+rwx /openhands/code/openhands/__init__.py
 {% if build_from_versioned %}
 {{ install_dependencies() }}
 {{ install_vscode_extensions() }}
+{% endif %}
+
+{% if enable_gui %}
+# Setup GUI extensions for versioned builds
+{{ setup_gui_extensions() }}
 {% endif %}
 
 # Install extra dependencies if specified

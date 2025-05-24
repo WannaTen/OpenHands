@@ -28,7 +28,7 @@ async def browse(
         asked_url = action.url
         if not asked_url.startswith('http'):
             asked_url = os.path.abspath(os.curdir) + action.url
-        action_str = f'goto("{asked_url}")'
+        action_str = f'goto:"{asked_url}"'
 
     elif isinstance(action, BrowseInteractiveAction):
         # new BrowseInteractiveAction, supports full featured BrowserGym actions

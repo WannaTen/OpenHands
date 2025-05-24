@@ -36,6 +36,7 @@ EXECUTION_SERVER_PORT_RANGE = (30000, 39999)
 VSCODE_PORT_RANGE = (40000, 49999)
 APP_PORT_RANGE_1 = (50000, 54999)
 APP_PORT_RANGE_2 = (55000, 59999)
+VNC_PORT_RANGE = (60000, 69999)
 
 
 def _is_retryable_wait_until_alive_error(exception):
@@ -94,6 +95,7 @@ class DockerRuntime(ActionExecutionClient):
         self._container_port = -1
         self._vscode_port = -1
         self._app_ports: list[int] = []
+        self._vnc_port = -1
 
         if os.environ.get('DOCKER_HOST_ADDR'):
             logger.info(
@@ -272,6 +274,10 @@ class DockerRuntime(ActionExecutionClient):
             self._find_available_port(APP_PORT_RANGE_1),
             self._find_available_port(APP_PORT_RANGE_2),
         ]
+        self._vnc_port = (
+            self.config.sandbox.vnc_port
+            or self._find_available_port(VNC_PORT_RANGE)
+        )
         self.api_url = f'{self.config.sandbox.local_runtime_url}:{self._container_port}'
 
         use_host_network = self.config.sandbox.use_host_network
@@ -304,6 +310,14 @@ class DockerRuntime(ActionExecutionClient):
                         'HostIp': self.config.sandbox.runtime_binding_address,
                     }
                 ]
+
+            # 添加 VNC 端口映射
+            port_mapping[f'{self._vnc_port}/tcp'] = [
+                {
+                    'HostPort': str(self._vnc_port),
+                    'HostIp': self.config.sandbox.runtime_binding_address,
+                }
+            ]
         else:
             self.log(
                 'warn',
@@ -317,6 +331,7 @@ class DockerRuntime(ActionExecutionClient):
             'PYTHONUNBUFFERED': '1',
             'VSCODE_PORT': str(self._vscode_port),
             'PIP_BREAK_SYSTEM_PACKAGES': '1',
+            'VNC_PORT': str(self._vnc_port),
         })
         if self.config.debug or DEBUG:
             environment['DEBUG'] = 'true'
