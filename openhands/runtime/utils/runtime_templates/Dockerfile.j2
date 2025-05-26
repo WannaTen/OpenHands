@@ -75,7 +75,7 @@ ENV DEBIAN_PRIORITY=high
 # Install GUI and desktop environment packages
 RUN apt-get update && \
     apt-get -y upgrade && \
-    apt-get -y install \
+    apt-get -y --no-install-recommends install \
     # UI Requirements
     xvfb \
     tint2 \
@@ -92,7 +92,12 @@ RUN apt-get update && \
     python3-xdg \
     x11-xserver-utils \
     netcat-traditional \
-    && apt-get install -y --no-install-recommends \
+    chromium \
+    # 最小键盘支持包
+    keyboard-configuration \
+    xkb-data \
+    console-setup \
+    locales \
     # Desktop applications
     libreoffice \
     x11-apps \
@@ -105,19 +110,26 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install noVNC
+RUN rm -rf /opt/noVNC && rm -rf /opt/websockify
 RUN git clone --depth 1 --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
     git clone --depth 1 --branch v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
     ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
-
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen && \
+    update-locale LANG=en_US.UTF-8
 # Setup GUI user environment (use openhands user if available, otherwise create new)
 ENV GUI_USERNAME=openhands
 ENV GUI_HOME=/home/$GUI_USERNAME
 # Create GUI user only if it doesn't exist, otherwise use existing openhands user
-RUN if ! id "$GUI_USERNAME" &>/dev/null; then \
-        useradd -m -s /bin/bash -d $GUI_HOME $GUI_USERNAME && \
-        echo "${GUI_USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers; \
+RUN echo "Checking if user $GUI_USERNAME exists..." && \
+    if getent passwd "$GUI_USERNAME" > /dev/null 2>&1; then \
+        echo "User $GUI_USERNAME already exists, using existing user"; \
+        echo "User info: $(id $GUI_USERNAME)"; \
     else \
-        echo "Using existing user: $GUI_USERNAME"; \
+        echo "User $GUI_USERNAME does not exist, creating new user"; \
+        useradd -m -s /bin/bash -d $GUI_HOME $GUI_USERNAME && \
+        echo "${GUI_USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+        echo "User $GUI_USERNAME created successfully"; \
     fi
 
 # Set display configuration variables
@@ -134,10 +146,12 @@ COPY ./code/openhands/runtime/utils/gui-extensions/start_all.sh $GUI_HOME/
 COPY ./code/openhands/runtime/utils/gui-extensions/xvfb_startup.sh $GUI_HOME/
 COPY ./code/openhands/runtime/utils/gui-extensions/x11vnc_startup.sh $GUI_HOME/
 COPY ./code/openhands/runtime/utils/gui-extensions/novnc_startup.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/keyboard_startup.sh $GUI_HOME/
 COPY ./code/openhands/runtime/utils/gui-extensions/mutter_startup.sh $GUI_HOME/
 COPY ./code/openhands/runtime/utils/gui-extensions/tint2_startup.sh $GUI_HOME/
 COPY ./code/openhands/runtime/utils/gui-extensions/.config/ $GUI_HOME/.config/
-
+COPY ./code/openhands/runtime/utils/gui-extensions/close_all.sh $GUI_HOME/
+COPY ./code/openhands/runtime/utils/gui-extensions/force_stop.sh $GUI_HOME/
 # Make scripts executable
 RUN chmod +x $GUI_HOME/*.sh
 
@@ -176,8 +190,6 @@ RUN if [ -z "${RELEASE_TAG}" ]; then \
     mv ${RELEASE_TAG}-linux-${arch} ${OPENVSCODE_SERVER_ROOT} && \
     cp ${OPENVSCODE_SERVER_ROOT}/bin/remote-cli/openvscode-server ${OPENVSCODE_SERVER_ROOT}/bin/remote-cli/code && \
     rm -f ${RELEASE_TAG}-linux-${arch}.tar.gz
-
-
 
 {% endmacro %}
 

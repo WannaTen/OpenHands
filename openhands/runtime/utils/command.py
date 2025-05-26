@@ -20,6 +20,7 @@ def get_action_execution_server_startup_command(
     override_user_id: int | None = None,
     override_username: str | None = None,
     main_module: str = DEFAULT_MAIN_MODULE,
+    enable_gui: bool = False,
 ) -> list[str]:
     sandbox_config = app_config.sandbox
 
@@ -56,6 +57,8 @@ def get_action_execution_server_startup_command(
         username,
         '--user-id',
         str(user_id),
+        '--enable-gui',
+        str(enable_gui),
         *browsergym_args,
     ]
 

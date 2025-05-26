@@ -29,6 +29,11 @@ RUN apt-get update && \
     x11-xserver-utils \
     net-tools \
     netcat-traditional \
+    # 键盘输入支持包（针对Mutter+Tint2环境）
+    keyboard-configuration \
+    xkb-data \
+    console-setup \
+    locales \
     && sudo apt-get install -y --no-install-recommends \
     libreoffice \
     x11-apps \
@@ -45,7 +50,9 @@ RUN apt-get update && \
 RUN git clone --depth 1 --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
     git clone --depth 1 --branch v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
     ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
-
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen && \
+    update-locale LANG=en_US.UTF-8
 # setup user
 ENV USERNAME=sibux
 ENV HOME=/home/$USERNAME

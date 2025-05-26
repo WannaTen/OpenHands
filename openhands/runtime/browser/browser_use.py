@@ -3,19 +3,21 @@ import multiprocessing
 import uuid  
 import asyncio  
 import base64  
-import html2text  
+import html2text
+import os
   
 from browser_use.browser.browser import Browser, BrowserConfig  
 from browser_use.browser.context import BrowserContextConfig  
   
 class BrowserUseEnv:  
-    def __init__(self):  
+    def __init__(self, enable_gui: bool = True):  
         # HTML转文本转换器  
         self.html_text_converter = self.get_html_text_converter()  
           
         # 初始化浏览器环境进程  
         multiprocessing.set_start_method('spawn', force=True)  
         self.browser_side, self.agent_side = multiprocessing.Pipe()  
+        self.enable_gui = enable_gui
           
         # 初始化浏览器  
         self.init_browser()  
@@ -52,13 +54,16 @@ class BrowserUseEnv:
         """浏览器进程的主函数"""  
         # 创建事件循环  
         loop = asyncio.new_event_loop()  
-        asyncio.set_event_loop(loop)  
+        asyncio.set_event_loop(loop)
+        display = os.environ.get('DISPLAY', ':1')
           
         # 初始化浏览器配置  
         browser_config = BrowserConfig(  
-            headless=True,  
+            headless=not self.enable_gui,  
             disable_security=True,  
-            deterministic_rendering=True  
+            deterministic_rendering=True,
+            browser_binary_path='/usr/bin/chromium',
+            extra_browser_args=['--no-sandbox', f'--display={display}']
         )  
           
         # 初始化浏览器上下文配置  

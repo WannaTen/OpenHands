@@ -95,7 +95,7 @@ class DockerRuntime(ActionExecutionClient):
         self._container_port = -1
         self._vscode_port = -1
         self._app_ports: list[int] = []
-        self._vnc_port = -1
+        self._novnc_port = -1
 
         if os.environ.get('DOCKER_HOST_ADDR'):
             logger.info(
@@ -274,10 +274,8 @@ class DockerRuntime(ActionExecutionClient):
             self._find_available_port(APP_PORT_RANGE_1),
             self._find_available_port(APP_PORT_RANGE_2),
         ]
-        self._vnc_port = (
-            self.config.sandbox.vnc_port
-            or self._find_available_port(VNC_PORT_RANGE)
-        )
+        self._novnc_port = self._find_available_port(VNC_PORT_RANGE)
+        
         self.api_url = f'{self.config.sandbox.local_runtime_url}:{self._container_port}'
 
         use_host_network = self.config.sandbox.use_host_network
@@ -312,9 +310,9 @@ class DockerRuntime(ActionExecutionClient):
                 ]
 
             # 添加 VNC 端口映射
-            port_mapping[f'{self._vnc_port}/tcp'] = [
+            port_mapping[f'6080/tcp'] = [
                 {
-                    'HostPort': str(self._vnc_port),
+                    'HostPort': str(self._novnc_port),
                     'HostIp': self.config.sandbox.runtime_binding_address,
                 }
             ]
@@ -331,7 +329,7 @@ class DockerRuntime(ActionExecutionClient):
             'PYTHONUNBUFFERED': '1',
             'VSCODE_PORT': str(self._vscode_port),
             'PIP_BREAK_SYSTEM_PACKAGES': '1',
-            'VNC_PORT': str(self._vnc_port),
+            'NOVNC_PORT': str(self._novnc_port),
         })
         if self.config.debug or DEBUG:
             environment['DEBUG'] = 'true'
@@ -413,6 +411,9 @@ class DockerRuntime(ActionExecutionClient):
                 self._container_port = self._host_port
             elif env_var.startswith('VSCODE_PORT='):
                 self._vscode_port = int(env_var.split('VSCODE_PORT=')[1])
+            elif env_var.startswith('NOVNC_PORT='):
+                self._novnc_port = int(env_var.split('NOVNC_PORT=')[1])
+
 
         self._app_ports = []
         exposed_ports = config.get('ExposedPorts')
@@ -422,6 +423,7 @@ class DockerRuntime(ActionExecutionClient):
                 if (
                     exposed_port != self._host_port
                     and exposed_port != self._vscode_port
+                    and exposed_port != 6080
                 ):
                     self._app_ports.append(exposed_port)
 
@@ -506,6 +508,10 @@ class DockerRuntime(ActionExecutionClient):
             hosts[f'http://{host_addr}:{port}'] = port
 
         return hosts
+    
+    @property
+    def novnc_url(self):
+        return f'http://localhost:{self._novnc_port}'
 
     def pause(self):
         """Pause the runtime by stopping the container.
@@ -553,4 +559,5 @@ class DockerRuntime(ActionExecutionClient):
             plugins=self.plugins,
             app_config=self.config,
             main_module=self.main_module,
+            enable_gui=self.config.sandbox.enable_gui,
         )

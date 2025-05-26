@@ -80,6 +80,7 @@ class SandboxConfig(BaseModel):
     selected_repo: str | None = Field(default=None)
     trusted_dirs: list[str] = Field(default_factory=list)
     vscode_port: int | None = Field(default=None)
+    enable_gui: bool = Field(default=True)
     vnc_port: int | None = Field(default=6080)
     volumes: str | None = Field(
         default=None,

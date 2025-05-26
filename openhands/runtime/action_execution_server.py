@@ -72,6 +72,7 @@ from openhands.runtime.utils.files import insert_lines, read_lines
 from openhands.runtime.utils.memory_monitor import MemoryMonitor
 from openhands.runtime.utils.runtime_init import init_user_and_working_directory
 from openhands.runtime.utils.system_stats import get_system_stats
+from openhands.runtime.utils.web_gui_session import WebGuiSession
 from openhands.utils.async_utils import call_sync_from_async, wait_all
 
 # Set MCP router logger to the same level as the main logger
@@ -176,6 +177,7 @@ class ActionExecutor:
         username: str,
         user_id: int,
         browsergym_eval_env: str | None,
+        enable_gui: bool = True,
     ) -> None:
         self.plugins_to_load = plugins_to_load
         self._initial_cwd = work_dir
@@ -194,6 +196,11 @@ class ActionExecutor:
         self.browser: BrowserEnv | BrowserUseEnv | None = None
         self.browser_init_task: asyncio.Task | None = None
         self.browsergym_eval_env = browsergym_eval_env
+
+        # WebGuiSession integration
+        self.enable_gui = enable_gui
+        self.web_gui_session: WebGuiSession | None = None
+        self.web_gui_initialized = False
 
         self.start_time = time.time()
         self.last_execution_time = self.start_time
@@ -218,6 +225,62 @@ class ActionExecutor:
     def initial_cwd(self):
         return self._initial_cwd
 
+    def _init_web_gui(self):
+        """Initialize the WebGuiSession synchronously."""
+        if sys.platform == 'win32':
+            logger.warning('WebGuiSession not supported on windows')
+            return
+
+        logger.debug('Initializing WebGuiSession')
+        try:
+            # 从环境变量获取GUI配置，或使用默认值
+            gui_home = os.environ.get('GUI_HOME', self._initial_cwd)
+            display_num = int(os.environ.get('DISPLAY_NUM', '1'))
+            width = int(os.environ.get('GUI_WIDTH', '1024'))
+            height = int(os.environ.get('GUI_HEIGHT', '768'))
+            vnc_port = int(os.environ.get('VNC_PORT', '5900'))
+            novnc_port = int(os.environ.get('NOVNC_PORT', '6080'))
+
+            self.web_gui_session = WebGuiSession(
+                gui_home=gui_home,
+                display_num=display_num,
+                width=width,
+                height=height,
+                vnc_port=vnc_port,
+                novnc_port=novnc_port,
+            )
+
+            # 启动GUI服务
+            success = self.web_gui_session.start()
+            if success:
+                logger.debug('WebGuiSession initialized and started successfully')
+                self.web_gui_initialized = True
+            else:
+                logger.error('Failed to start WebGuiSession')
+                self.web_gui_session = None
+                self.web_gui_initialized = False
+        except Exception as e:
+            logger.error(f'Failed to initialize WebGuiSession: {e}')
+            self.web_gui_session = None
+            self.web_gui_initialized = False
+
+    def _ensure_web_gui_ready(self):
+        """Ensure the WebGuiSession is ready for use."""
+        if self.enable_gui and (
+            not self.web_gui_initialized or self.web_gui_session is None
+        ):
+            logger.debug('Initializing WebGuiSession as it is not ready')
+            self._init_web_gui()
+
+        if self.web_gui_session is None:
+            logger.warning(
+                'WebGuiSession initialization failed, but continuing without GUI'
+            )
+            return
+
+        # If we get here, the WebGuiSession is ready
+        logger.debug('WebGuiSession is ready')
+
     async def _init_browser_async(self):
         """Initialize the browser asynchronously."""
         if sys.platform == 'win32':
@@ -226,8 +289,10 @@ class ActionExecutor:
 
         logger.debug('Initializing browser asynchronously')
         try:
-            # self.browser = BrowserEnv(self.browsergym_eval_env)
-            self.browser = BrowserUseEnv()
+            if not self.enable_gui:
+                self.browser = BrowserEnv(self.browsergym_eval_env)
+            else:
+                self.browser = BrowserUseEnv(enable_gui=self.enable_gui)
             logger.debug('Browser initialized asynchronously')
         except Exception as e:
             logger.error(f'Failed to initialize browser: {e}')
@@ -279,6 +344,11 @@ class ActionExecutor:
             self.bash_session.initialize()
         logger.debug('Bash session initialized')
 
+        # Initialize WebGuiSession synchronously
+        if self.enable_gui:
+            logger.debug('Initializing WebGuiSession...')
+            self._init_web_gui()
+
         # Start browser initialization in the background
         self.browser_init_task = asyncio.create_task(self._init_browser_async())
         logger.debug('Browser initialization started in background')
@@ -303,6 +373,11 @@ class ActionExecutor:
 
         logger.debug('Initializing bash commands')
         await self._init_bash_commands()
+
+        # 确保WebGuiSession在继续之前已经启动完成
+        if self.enable_gui:
+            logger.debug('Ensuring WebGuiSession is ready...')
+            self._ensure_web_gui_ready()
 
         logger.debug('Runtime client initialized.')
         self._initialized = True
@@ -621,6 +696,14 @@ class ActionExecutor:
         if self.browser is not None:
             self.browser.close()
 
+        # 关闭WebGuiSession - 改为同步调用
+        if self.web_gui_session is not None:
+            try:
+                self.web_gui_session.stop(force=True)
+                logger.debug('WebGuiSession closed successfully')
+            except Exception as e:
+                logger.error(f'Error closing WebGuiSession: {e}')
+
 
 if __name__ == '__main__':
     logger.warning('Starting Action Execution Server')
@@ -638,6 +721,12 @@ if __name__ == '__main__':
         type=str,
         help='BrowserGym environment used for browser evaluation',
         default=None,
+    )
+    parser.add_argument(
+        '--enable-gui',
+        type=bool,
+        help='Enable GUI for browser',
+        default=True,
     )
 
     # example: python client.py 8000 --working-dir /workspace --plugins JupyterRequirement
@@ -674,6 +763,7 @@ if __name__ == '__main__':
             username=args.username,
             user_id=args.user_id,
             browsergym_eval_env=args.browsergym_eval_env,
+            enable_gui=args.enable_gui,
         )
         await client.ainit()
         logger.info('ActionExecutor initialized.')
@@ -795,6 +885,18 @@ if __name__ == '__main__':
             'idle_time': idle_time,
             'resources': get_system_stats(),
         }
+
+        # 添加WebGuiSession状态信息 - 改为同步调用
+        if client.web_gui_session is not None:
+            try:
+                gui_status = client.web_gui_session.get_status()
+                response['web_gui_status'] = gui_status
+            except Exception as e:
+                logger.error(f'Error getting WebGuiSession status: {e}')
+                response['web_gui_status'] = {'error': str(e)}
+        else:
+            response['web_gui_status'] = {'status': 'not_initialized'}
+
         logger.info('Server info endpoint response: %s', response)
         return response
 
@@ -962,6 +1064,39 @@ if __name__ == '__main__':
             return {'token': plugin.vscode_connection_token}
         else:
             return {'token': None}
+
+    # ================================
+    # WebGui-specific operations
+    # ================================
+
+    @app.get('/webgui/status')
+    async def get_webgui_status():
+        assert client is not None
+        if client.web_gui_session is not None:
+            try:
+                status = client.web_gui_session.get_status()
+                return status
+            except Exception as e:
+                logger.error(f'Error getting WebGuiSession status: {e}')
+                return {'error': str(e)}
+        else:
+            return {'status': 'not_initialized'}
+
+    @app.post('/webgui/restart')
+    async def restart_webgui():
+        assert client is not None
+        if client.web_gui_session is not None:
+            try:
+                success = client.web_gui_session.restart()
+                return {
+                    'success': success,
+                    'message': 'WebGuiSession restart completed',
+                }
+            except Exception as e:
+                logger.error(f'Error restarting WebGuiSession: {e}')
+                return {'success': False, 'error': str(e)}
+        else:
+            return {'success': False, 'error': 'WebGuiSession not initialized'}
 
     # ================================
     # File-specific operations for UI
