@@ -62,7 +62,7 @@ COPY ./gui-extensions/entrypoint.sh $GUI_HOME/
 **启动流程说明**:
 1. **容器启动**: 主应用或 shell 启动
 2. **GUI 服务启动**: 手动执行 `$GUI_HOME/entrypoint.sh` 或 `$GUI_HOME/start_all.sh`
-3. **服务管理**: 
+3. **服务管理**:
    - `start_all.sh`: 启动核心 GUI 服务 (Xvfb, VNC, 窗口管理器)
    - `novnc_startup.sh`: 启动 Web 访问服务
 
@@ -214,4 +214,4 @@ template.render(
 )
 ```
 
-这种优化后的集成方案解决了原始配置的冲突问题，提供了更好的模块化和灵活性，同时保持了与现有系统的兼容性。 
+这种优化后的集成方案解决了原始配置的冲突问题，提供了更好的模块化和灵活性，同时保持了与现有系统的兼容性。

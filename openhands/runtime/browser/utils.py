@@ -6,7 +6,6 @@ from pathlib import Path
 from PIL import Image
 
 from openhands.core.exceptions import BrowserUnavailableException
-from openhands.core.schema import ActionType
 from openhands.events.action import BrowseInteractiveAction, BrowseURLAction
 from openhands.events.observation import BrowserOutputObservation
 from openhands.runtime.browser.base64_utils import png_base64_url_to_image
@@ -17,7 +16,7 @@ from openhands.utils.async_utils import call_sync_from_async
 
 async def browse(
     action: BrowseURLAction | BrowseInteractiveAction,
-    browser: BrowserEnv | BrowserUseEnv | None, 
+    browser: BrowserEnv | BrowserUseEnv | None,
     workspace_dir: str | None = None,
 ) -> BrowserOutputObservation:
     if browser is None:
@@ -73,9 +72,8 @@ async def browse(
                         image.save(screenshot_path, format='PNG', optimize=True)
                 except Exception as save_exc:
                     # If saving still fails, set screenshot_path to None
-                    print(f"Error saving screenshot: {save_exc}")
+                    print(f'Error saving screenshot: {save_exc}')
                     screenshot_path = None
-
 
         return BrowserOutputObservation(
             content=obs.get('text_content', ''),  # text content of the page
@@ -96,11 +94,12 @@ async def browse(
                 'focused_element_bid', None
             ),  # focused element bid
             last_browser_action=obs.get(
-                'last_action', '' # In BrowserUseEnv, this will be populated by its step method
+                'last_action',
+                '',  # In BrowserUseEnv, this will be populated by its step method
             ),
             last_browser_action_error=obs.get('last_action_error', ''),
             error=obs.get('error', False),
-            trigger_by_action=action.action, # This might be redundant if last_action is correctly populated
+            trigger_by_action=action.action,  # This might be redundant if last_action is correctly populated
         )
     except Exception as e:
         return BrowserOutputObservation(
@@ -109,6 +108,8 @@ async def browse(
             screenshot_path=None,
             error=True,
             last_browser_action_error=str(e),
-            url=asked_url if isinstance(action, BrowseURLAction) else (action.url if hasattr(action, 'url') else ''),
+            url=asked_url
+            if isinstance(action, BrowseURLAction)
+            else (action.url if hasattr(action, 'url') else ''),
             trigger_by_action=action.action,
         )

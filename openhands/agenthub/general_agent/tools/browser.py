@@ -1,4 +1,3 @@
-
 from litellm import ChatCompletionToolParam, ChatCompletionToolParamFunctionChunk
 
 _BROWSER_DESCRIPTION = """Interact with the browser by providing action strings. Use this tool ONLY when you need to interact with a webpage.

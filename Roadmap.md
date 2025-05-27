@@ -79,4 +79,4 @@
 *   **模块化设计**: 在整个过程中，尽可能保持模块化设计，降低耦合度，便于未来的维护和扩展。
 *   **配置化**: 对于 LLM 选择、工具 API Keys 等，应采用配置化的方式管理。
 *   **逐步迭代**: 建议采用敏捷迭代的方式，先完成核心功能的最小可行版本（MVP），再逐步完善和扩展。
-*   **社区资源**: 关注 OpenHands 和类似项目（如 OpenDevin, OpenInterpreter, OpenManus 等）的社区进展，借鉴优秀实践。 
+*   **社区资源**: 关注 OpenHands 和类似项目（如 OpenDevin, OpenInterpreter, OpenManus 等）的社区进展，借鉴优秀实践。

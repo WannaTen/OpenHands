@@ -1,8 +1,8 @@
-import copy
 import os
 import sys
 from collections import deque
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from litellm import ChatCompletionToolParam
 
@@ -19,7 +19,6 @@ from openhands.agenthub.general_agent.tools.str_replace_editor import (
     create_str_replace_editor_tool,
 )
 from openhands.agenthub.general_agent.tools.think import ThinkTool
-from openhands.agenthub.general_agent.tools.web_read import WebReadTool
 from openhands.controller.agent import Agent
 from openhands.controller.state.state import State
 from openhands.core.config import AgentConfig
