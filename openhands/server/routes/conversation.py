@@ -57,6 +57,36 @@ async def get_vscode_url(request: Request) -> JSONResponse:
         )
 
 
+@app.get('/novnc-url')
+async def get_novnc_url(request: Request) -> JSONResponse:
+    """Get the NoVNC URL.
+
+    This endpoint allows getting the NoVNC URL.
+
+    Args:
+        request (Request): The incoming FastAPI request object.
+
+    Returns:
+        JSONResponse: A JSON response indicating the success of the operation.
+    """
+    try:
+        runtime: Runtime = request.state.conversation.runtime
+        logger.debug(f'Runtime type: {type(runtime)}')
+        logger.debug(f'Runtime NoVNC URL: {runtime.novnc_url}')
+        return JSONResponse(
+            status_code=status.HTTP_200_OK, content={'novnc_url': runtime.novnc_url}
+        )
+    except Exception as e:
+        logger.error(f'Error getting NoVNC URL: {e}')
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                'novnc_url': None,
+                'error': f'Error getting NoVNC URL: {e}',
+            },
+        )
+
+
 @app.get('/web-hosts')
 async def get_hosts(request: Request) -> JSONResponse:
     """Get the hosts used by the runtime.

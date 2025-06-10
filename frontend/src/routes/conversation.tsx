@@ -2,7 +2,7 @@ import { useDisclosure } from "@heroui/react";
 import React from "react";
 import { useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
-import { FaServer, FaExternalLinkAlt } from "react-icons/fa";
+import { FaServer, FaExternalLinkAlt, FaDesktop } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { DiGit } from "react-icons/di";
 import { VscCode } from "react-icons/vsc";
@@ -37,6 +37,7 @@ import { RootState } from "#/store";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
 import { useDocumentTitleFromState } from "#/hooks/use-document-title-from-state";
 import { transformVSCodeUrl } from "#/utils/vscode-url-helper";
+import { transformNovncUrl } from "#/utils/novnc-url-helper";
 import OpenHands from "#/api/open-hands";
 import { TabContent } from "#/components/layout/tab-content";
 
@@ -144,6 +145,42 @@ function AppContent() {
                           if (data.vscode_url) {
                             const transformedUrl = transformVSCodeUrl(
                               data.vscode_url,
+                            );
+                            if (transformedUrl) {
+                              window.open(transformedUrl, "_blank");
+                            }
+                          }
+                        } catch (err) {
+                          // Silently handle the error
+                        }
+                      }
+                    }}
+                  />
+                ) : null,
+              },
+              {
+                label: (
+                  <div className="flex items-center gap-1">
+                    {t(I18nKey.NOVNC$TITLE)}
+                  </div>
+                ),
+                to: "novnc",
+                icon: <FaDesktop className="w-5 h-5" />,
+                rightContent: !RUNTIME_INACTIVE_STATES.includes(
+                  curAgentState,
+                ) ? (
+                  <FaExternalLinkAlt
+                    className="w-3 h-3 text-neutral-400 cursor-pointer"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (conversationId) {
+                        try {
+                          const data =
+                            await OpenHands.getNovncUrl(conversationId);
+                          if (data.novnc_url) {
+                            const transformedUrl = transformNovncUrl(
+                              data.novnc_url,
                             );
                             if (transformedUrl) {
                               window.open(transformedUrl, "_blank");

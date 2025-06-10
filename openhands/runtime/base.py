@@ -851,6 +851,10 @@ fi
         raise NotImplementedError('This method is not implemented in the base class.')
 
     @property
+    def novnc_url(self) -> str | None:
+        raise NotImplementedError('This method is not implemented in the base class.')
+
+    @property
     def web_hosts(self) -> dict[str, int]:
         return {}
 

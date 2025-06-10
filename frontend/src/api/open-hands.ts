@@ -5,6 +5,7 @@ import {
   GitHubAccessTokenResponse,
   GetConfigResponse,
   GetVSCodeUrlResponse,
+  GetNovncUrlResponse,
   AuthenticateResponse,
   Conversation,
   ResultSet,
@@ -173,6 +174,20 @@ class OpenHands {
   ): Promise<GetVSCodeUrlResponse> {
     const url = `${this.getConversationUrl(conversationId)}/vscode-url`;
     const { data } = await openHands.get<GetVSCodeUrlResponse>(url, {
+      headers: this.getConversationHeaders(),
+    });
+    return data;
+  }
+
+  /**
+   * Get the NoVNC URL
+   * @returns NoVNC URL
+   */
+  static async getNovncUrl(
+    conversationId: string,
+  ): Promise<GetNovncUrlResponse> {
+    const url = `${this.getConversationUrl(conversationId)}/novnc-url`;
+    const { data } = await openHands.get<GetNovncUrlResponse>(url, {
       headers: this.getConversationHeaders(),
     });
     return data;
