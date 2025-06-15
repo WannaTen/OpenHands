@@ -12,6 +12,7 @@ import {
   GetTrajectoryResponse,
   GitChangeDiff,
   GitChange,
+  GetMicroagentPromptResponse,
 } from "./open-hands.types";
 import { openHands } from "./open-hands-axios";
 import { ApiSettings, PostApiSettings, Provider } from "#/types/settings";
@@ -251,6 +252,26 @@ class OpenHands {
     return data;
   }
 
+  static async startConversation(
+    conversationId: string,
+  ): Promise<Conversation | null> {
+    const { data } = await openHands.post<Conversation | null>(
+      `/api/conversations/${conversationId}/start`,
+    );
+
+    return data;
+  }
+
+  static async stopConversation(
+    conversationId: string,
+  ): Promise<Conversation | null> {
+    const { data } = await openHands.post<Conversation | null>(
+      `/api/conversations/${conversationId}/stop`,
+    );
+
+    return data;
+  }
+
   /**
    * Get the settings from the server or use the default settings if not found
    */
@@ -387,6 +408,20 @@ class OpenHands {
     );
 
     return data;
+  }
+
+  static async getMicroagentPrompt(
+    conversationId: string,
+    eventId: number,
+  ): Promise<string> {
+    const { data } = await openHands.get<GetMicroagentPromptResponse>(
+      `/api/conversations/${conversationId}/remember_prompt`,
+      {
+        params: { event_id: eventId },
+      },
+    );
+
+    return data.prompt;
   }
 }
 

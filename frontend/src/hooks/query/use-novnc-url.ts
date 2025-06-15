@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useSelector } from "react-redux";
 import OpenHands from "#/api/open-hands";
-import { useConversation } from "#/context/conversation-context";
+import { useConversationId } from "#/hooks/use-conversation-id";
 import { I18nKey } from "#/i18n/declaration";
-import { RootState } from "#/store";
-import { RUNTIME_INACTIVE_STATES } from "#/types/agent-state";
 import { transformNovncUrl } from "#/utils/novnc-url-helper";
+import { useRuntimeIsReady } from "#/hooks/use-runtime-is-ready";
 
 // Define the return type for the NoVNC URL query
 interface NovncUrlResult {
@@ -16,9 +14,8 @@ interface NovncUrlResult {
 
 export const useNovncUrl = () => {
   const { t } = useTranslation();
-  const { conversationId } = useConversation();
-  const { curAgentState } = useSelector((state: RootState) => state.agent);
-  const isRuntimeInactive = RUNTIME_INACTIVE_STATES.includes(curAgentState);
+  const { conversationId } = useConversationId();
+  const runtimeIsReady = useRuntimeIsReady();
 
   return useQuery<NovncUrlResult>({
     queryKey: ["novnc_url", conversationId],
@@ -36,7 +33,7 @@ export const useNovncUrl = () => {
         error: t(I18nKey.NOVNC$URL_NOT_AVAILABLE),
       };
     },
-    enabled: !!conversationId && !isRuntimeInactive,
+    enabled: runtimeIsReady && !!conversationId,
     refetchOnMount: true,
     retry: 3,
   });
