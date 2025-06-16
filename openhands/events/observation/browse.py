@@ -77,20 +77,7 @@ class BrowserOutputObservation(Observation):
                 )
             else:
                 text += '[Action executed successfully.]\n'
-            try:
-                # We do not filter visible only here because we want to show the full content
-                # of the web page to the agent for simplicity.
-                # FIXME: handle the case when the web page is too large
-                cur_axtree_txt = self.get_axtree_str(filter_visible_only=False)
-                text += (
-                    f'============== BEGIN accessibility tree ==============\n'
-                    f'{cur_axtree_txt}\n'
-                    f'============== END accessibility tree ==============\n'
-                )
-            except Exception as e:
-                text += (
-                    f'\n[Error encountered when processing the accessibility tree: {e}]'
-                )
+
             return text
 
         elif self.trigger_by_action == ActionType.BROWSE:
@@ -109,13 +96,3 @@ class BrowserOutputObservation(Observation):
             return text
         else:
             raise ValueError(f'Invalid trigger_by_action: {self.trigger_by_action}')
-
-    def get_axtree_str(self, filter_visible_only: bool = False) -> str:
-        cur_axtree_txt = flatten_axtree_to_str(
-            self.axtree_object,
-            extra_properties=self.extra_element_properties,
-            with_clickable=True,
-            skip_generic=False,
-            filter_visible_only=filter_visible_only,
-        )
-        return str(cur_axtree_txt)

@@ -262,31 +262,37 @@ class BrowserUseEnv:
     async def _get_observation(self, browser_context, action_result):
         """获取当前浏览器状态的观察结果"""
         # 获取浏览器状态
-        await browser_context.get_state(cache_clickable_elements_hashes=True)
+        state = await browser_context.get_state(cache_clickable_elements_hashes=True)
 
-        # 获取当前页面
         page = await browser_context.get_current_page()
 
-        # 获取DOM结构
-        html_str = await page.content()
+        # 获取当前页面
+        html_str = await browser_context.get_page_html()
         text_content = self.html_text_converter.handle(html_str)
 
         # 获取截图
-        screenshot = await page.screenshot()
-        screenshot_base64 = self._image_to_base64(screenshot)
+        screenshot_base64 = state.screenshot
+
+        urls = [tab.url for tab in state.tabs]
+        active_page_index = 0
+
+        for tab_info in state.tabs:
+            if tab_info.url == state.url:
+                active_page_index = tab_info.page_id
+                break
 
         # 构建观察结果
-        current_url = page.url
+        current_url = state.url
         obs = {
             'url': current_url,
-            'title': await page.title(),
+            'title': state.title,
             'text_content': text_content,
             'screenshot': screenshot_base64,
-            'set_of_marks': screenshot_base64,
+            'set_of_marks': None,
             'dom_object': {},  # 简化处理，实际应用中需要转换DOM结构
             'axtree_object': {},  # 根据需要填充 AXTree
-            'active_page_index': 0,  # 当前假设只有一个页面
-            'open_pages_urls': [current_url] if current_url else [],
+            'active_page_index': active_page_index,  # 当前假设只有一个页面
+            'open_pages_urls': urls,
             'goal_image_urls': [],  # 根据需要填充
             'focused_element_bid': None,  # 根据需要填充
             'elapsed_time': 0,  # 简化处理

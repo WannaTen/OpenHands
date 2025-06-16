@@ -307,7 +307,9 @@ class DockerNestedConversationManager(ConversationManager):
                     await asyncio.sleep(1)
 
         except Exception as e:
-            logger.warning('error_stopping_container', extra={"sid": sid, "error": str(e)})
+            logger.warning(
+                'error_stopping_container', extra={'sid': sid, 'error': str(e)}
+            )
         container.stop()
 
     async def get_agent_loop_info(

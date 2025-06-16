@@ -396,6 +396,7 @@ class ConversationMemory:
                 obs.trigger_by_action == ActionType.BROWSE_INTERACTIVE
                 and enable_som_visual_browsing
                 and vision_is_active
+                and ((obs.set_of_marks and len(obs.set_of_marks) > 0) or obs.screenshot)
             ):
                 text += 'Image: Current webpage screenshot (Note that only visible portion of webpage is present in the screenshot. You may need to scroll to view the remaining portion of the web-page.)\n'
                 message = Message(
@@ -409,7 +410,7 @@ class ConversationMemory:
                                 obs.set_of_marks
                                 if obs.set_of_marks is not None
                                 and len(obs.set_of_marks) > 0
-                                else obs.screenshot
+                                else f'data:image/png;base64,{obs.screenshot}'
                             ]
                         ),
                     ],
