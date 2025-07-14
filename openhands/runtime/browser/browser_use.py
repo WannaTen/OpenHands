@@ -264,7 +264,7 @@ class BrowserUseEnv:
         # 获取浏览器状态
         state = await browser_context.get_state(cache_clickable_elements_hashes=True)
 
-        page = await browser_context.get_current_page()
+        await browser_context.get_current_page()
 
         # 获取当前页面
         html_str = await browser_context.get_page_html()

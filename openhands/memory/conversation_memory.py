@@ -28,6 +28,7 @@ from openhands.events.observation import (
     AgentThinkObservation,
     BrowserOutputObservation,
     CmdOutputObservation,
+    FileDownloadObservation,
     FileEditObservation,
     FileReadObservation,
     IPythonRunCellObservation,
@@ -55,6 +56,18 @@ class ConversationMemory:
     def __init__(self, config: AgentConfig, prompt_manager: PromptManager):
         self.agent_config = config
         self.prompt_manager = prompt_manager
+
+    @staticmethod
+    def _is_valid_image_url(url: str | None) -> bool:
+        """Check if an image URL is valid and non-empty.
+
+        Args:
+            url: The image URL to validate
+
+        Returns:
+            True if the URL is valid, False otherwise
+        """
+        return bool(url and url.strip())
 
     def process_events(
         self,
@@ -276,7 +289,12 @@ class ConversationMemory:
             role = 'user' if action.source == 'user' else 'assistant'
             content = [TextContent(text=action.content or '')]
             if vision_is_active and action.image_urls:
-                content.append(ImageContent(image_urls=action.image_urls))
+                if role == 'user':
+                    for idx, url in enumerate(action.image_urls):
+                        content.append(TextContent(text=f'Image {idx + 1}:'))
+                        content.append(ImageContent(image_urls=[url]))
+                else:
+                    content.append(ImageContent(image_urls=action.image_urls))
             if role not in ('user', 'system', 'assistant', 'tool'):
                 raise ValueError(f'Invalid role: {role}')
             return [
@@ -327,6 +345,7 @@ class ConversationMemory:
         - AgentDelegateObservation: Formats results from delegated agent tasks
         - ErrorObservation: Formats error messages from failed actions
         - UserRejectObservation: Formats user rejection messages
+        - FileDownloadObservation: Formats the result of a browsing action that opened/downloaded a file
 
         In function calling mode, observations with tool_call_metadata are stored in
         tool_call_id_to_message for later processing instead of being returned immediately.
@@ -376,11 +395,31 @@ class ConversationMemory:
             text = truncate_content(text, max_message_chars)
 
             # Create message content with text
-            content = [TextContent(text=text)]
+            content: list[TextContent | ImageContent] = [TextContent(text=text)]
 
             # Add image URLs if available and vision is active
             if vision_is_active and obs.image_urls:
-                content.append(ImageContent(image_urls=obs.image_urls))
+                # Filter out empty or invalid image URLs
+                valid_image_urls = [
+                    url for url in obs.image_urls if self._is_valid_image_url(url)
+                ]
+                invalid_count = len(obs.image_urls) - len(valid_image_urls)
+
+                if valid_image_urls:
+                    content.append(ImageContent(image_urls=valid_image_urls))
+                    if invalid_count > 0:
+                        # Add text indicating some images were filtered
+                        content[
+                            0
+                        ].text += f'\n\nNote: {invalid_count} invalid or empty image(s) were filtered from this output. The agent may need to use alternative methods to access visual information.'  # type: ignore[union-attr]
+                else:
+                    logger.debug(
+                        'IPython observation has image URLs but none are valid'
+                    )
+                    # Add text indicating all images were filtered
+                    content[
+                        0
+                    ].text += f'\n\nNote: All {len(obs.image_urls)} image(s) in this output were invalid or empty and have been filtered. The agent should use alternative methods to access visual information.'  # type: ignore[union-attr]
 
             message = Message(role='user', content=content)
         elif isinstance(obs, FileEditObservation):
@@ -391,7 +430,7 @@ class ConversationMemory:
                 role='user', content=[TextContent(text=obs.content)]
             )  # Content is already truncated by openhands-aci
         elif isinstance(obs, BrowserOutputObservation):
-            text = obs.get_agent_obs_text()
+            text = obs.content
             if (
                 obs.trigger_by_action == ActionType.BROWSE_INTERACTIVE
                 and enable_som_visual_browsing
@@ -442,6 +481,9 @@ class ConversationMemory:
             text += '\n[Last action has been rejected by the user]'
             message = Message(role='user', content=[TextContent(text=text)])
         elif isinstance(obs, AgentCondensationObservation):
+            text = truncate_content(obs.content, max_message_chars)
+            message = Message(role='user', content=[TextContent(text=text)])
+        elif isinstance(obs, FileDownloadObservation):
             text = truncate_content(obs.content, max_message_chars)
             message = Message(role='user', content=[TextContent(text=text)])
         elif (
@@ -507,7 +549,7 @@ class ConversationMemory:
                 has_microagent_knowledge = bool(filtered_agents)
 
                 # Generate appropriate content based on what is present
-                message_content = []
+                message_content: list[TextContent | ImageContent] = []
 
                 # Build the workspace context information
                 if (

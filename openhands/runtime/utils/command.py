@@ -21,6 +21,7 @@ def get_action_execution_server_startup_command(
     override_username: str | None = None,
     main_module: str = DEFAULT_MAIN_MODULE,
     enable_gui: bool = False,
+    python_executable: str = 'python',
 ) -> list[str]:
     sandbox_config = app_config.sandbox
 
@@ -45,7 +46,7 @@ def get_action_execution_server_startup_command(
 
     base_cmd = [
         *python_prefix,
-        'python',
+        python_executable,
         '-u',
         '-m',
         main_module,
@@ -61,5 +62,8 @@ def get_action_execution_server_startup_command(
         str(enable_gui),
         *browsergym_args,
     ]
+
+    if not app_config.enable_browser:
+        base_cmd.append('--no-enable-browser')
 
     return base_cmd

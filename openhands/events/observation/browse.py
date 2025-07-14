@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from browsergym.utils.obs import flatten_axtree_to_str
-
-from openhands.core.schema import ActionType, ObservationType
+from openhands.core.schema import ObservationType
+from openhands.core.schema.action import ActionType
 from openhands.events.observation.observation import Observation
 
 
@@ -34,6 +33,7 @@ class BrowserOutputObservation(Observation):
     last_browser_action: str = ''
     last_browser_action_error: str = ''
     focused_element_bid: str = ''
+    filter_visible_only: bool = False
 
     @property
     def message(self) -> str:
@@ -53,7 +53,7 @@ class BrowserOutputObservation(Observation):
         if self.screenshot_path:
             ret += f'Screenshot saved to: {self.screenshot_path}\n'
         ret += '--- Agent Observation ---\n'
-        ret += self.get_agent_obs_text()
+        ret += self.content
         return ret
 
     def get_agent_obs_text(self) -> str:
