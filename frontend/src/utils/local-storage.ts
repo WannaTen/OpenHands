@@ -40,9 +40,8 @@ export const setLastPage = (page: string): void => {
  * Get the last visited page from local storage
  * @returns The last visited page or null if not set
  */
-export const getLastPage = (): string | null => {
-  return localStorage.getItem(LOCAL_STORAGE_KEYS.LAST_PAGE);
-};
+export const getLastPage = (): string | null =>
+  localStorage.getItem(LOCAL_STORAGE_KEYS.LAST_PAGE);
 
 /**
  * Check if a path should be excluded from tracking
@@ -51,15 +50,9 @@ export const getLastPage = (): string | null => {
  */
 export const shouldExcludePath = (path: string): boolean => {
   // Add paths that should not be tracked
-  const excludedPaths = [
-    '/login',
-    '/logout',
-    '/auth',
-    '/callback',
-    '/error',
-  ];
+  const excludedPaths = ["/login", "/logout", "/auth", "/callback", "/error"];
 
-  return excludedPaths.some(excludedPath => path.startsWith(excludedPath));
+  return excludedPaths.some((excludedPath) => path.startsWith(excludedPath));
 };
 
 /**
