@@ -60,6 +60,10 @@ def get_action_execution_server_startup_command(
         str(user_id),
         '--enable-gui',
         str(enable_gui),
+        '--git-user-name',
+        app_config.git_user_name,
+        '--git-user-email',
+        app_config.git_user_email,
         *browsergym_args,
     ]
 

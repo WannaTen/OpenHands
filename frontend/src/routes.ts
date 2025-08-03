@@ -28,5 +28,6 @@ export default [
       route("vscode", "routes/vscode-tab.tsx"),
       route("novnc", "routes/novnc-tab.tsx"),
     ]),
+    route("microagent-management", "routes/microagent-management.tsx"),
   ]),
 ] satisfies RouteConfig;
